@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEA — Work Order Anomaly &amp; Maintenance Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F6FA;
+    --bg-grid: radial-gradient(circle at 1px 1px, rgba(22,32,46,0.055) 1px, transparent 0);
+    --panel:#FFFFFF;
+    --panel-alt:#F0F3F8;
+    --border:#DCE3ED;
+    --border-soft:#E7ECF3;
+    --text:#16202E;
+    --text-dim:#5B6B82;
+    --text-faint:#8D99AD;
+    --amber:#B06B00;
+    --cyan:#0B7285;
+    --danger:#C6362F;
+    --good:#178A4F;
+    --c-planned:#0B7285;
+    --c-corrective:#C6362F;
+    --c-spike:#B06B00;
+    --c-recurring:#C6362F;
+    --c-backlog:#8C9AB5;
+    --c-duration:#A970D6;
+    --radius:10px;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --disp:'Space Grotesk', 'IBM Plex Sans Thai', sans-serif;
+    --sans:'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(180deg, rgba(11,114,133,0.05), transparent 320px),
+      var(--bg-grid) 0 0 / 22px 22px,
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:rgba(176,107,0,0.30); }
+  a{color:var(--cyan);}
+  .wrap{max-width:1360px;margin:0 auto;padding:28px 24px 80px;}
+
+  header.top{
+    display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+    padding-bottom:22px; margin-bottom:22px; border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
+  }
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--cyan);
+    text-transform:uppercase; margin:0 0 8px; display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan); display:inline-block;}
+  h1{ font-family:var(--disp); font-weight:600; font-size:28px; margin:0 0 6px; letter-spacing:-.01em; }
+  h1 .accent{color:var(--amber);}
+  .subtitle{color:var(--text-dim); font-size:13.5px; max-width:640px;}
+  .period-box{
+    font-family:var(--mono); font-size:12px; color:var(--text-dim);
+    text-align:right; border:1px solid var(--border); border-radius:var(--radius);
+    padding:10px 14px; background:var(--panel); min-width:200px;
+  }
+  .period-box b{color:var(--text); font-weight:600; display:block; font-size:13px; margin-bottom:2px;}
+  .header-actions{display:flex; flex-direction:column; align-items:flex-end; gap:8px;}
+  .btn{
+    font-family:var(--sans); font-size:12.5px; font-weight:600; cursor:pointer;
+    border-radius:8px; padding:8px 14px; border:1px solid var(--border); background:var(--panel);
+    color:var(--text); transition:all .12s;
+  }
+  .btn:hover{border-color:var(--cyan); color:var(--cyan);}
+  .btn.primary{background:var(--cyan); border-color:var(--cyan); color:#fff;}
+  .btn.primary:hover{opacity:.9; color:#fff;}
+  .btn.ghost{border-color:transparent; color:var(--text-dim); padding:6px 8px;}
+  #uploadStatus{font-size:11.5px; font-family:var(--mono);}
+
+  /* ---------- empty state ---------- */
+  #emptyState{
+    border:1.5px dashed var(--border); border-radius:14px; padding:70px 30px; text-align:center;
+    background:var(--panel);
+  }
+  #emptyState .icon{font-size:34px; margin-bottom:14px;}
+  #emptyState h2{font-family:var(--disp); font-size:19px; margin:0 0 8px;}
+  #emptyState p{color:var(--text-dim); font-size:13.5px; max-width:480px; margin:0 auto 20px;}
+  #emptyState .cols{color:var(--text-faint); font-family:var(--mono); font-size:11px; max-width:560px; margin:18px auto 0;}
+
+  /* ---------- KPI strip ---------- */
+  .kpi-strip{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:20px;}
+  .kpi{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; position:relative; overflow:hidden; box-shadow:0 1px 2px rgba(16,32,50,.04);
+  }
+  .kpi::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--cyan);opacity:.7;}
+  .kpi.warn::before{background:var(--amber);}
+  .kpi.danger::before{background:var(--danger);}
+  .kpi .label{font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;}
+  .kpi .value{font-family:var(--mono); font-size:22px; font-weight:600; color:var(--text);}
+  .kpi .value small{font-size:12.5px; color:var(--text-dim); font-weight:400;}
+
+  /* ---------- panel base ---------- */
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(16,32,50,.05);
+  }
+  .panel-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:12px; flex-wrap:wrap;}
+  .panel-title{font-family:var(--disp); font-size:15px; font-weight:600; letter-spacing:.01em; display:flex; align-items:center; gap:8px;}
+  .panel-title .idx{font-family:var(--mono); color:var(--text-faint); font-size:12px;}
+  .panel-desc{font-size:12px; color:var(--text-dim); margin-top:2px;}
+
+  /* ---------- center workload mosaic ---------- */
+  .mosaic-wrap{display:flex; flex-wrap:wrap; gap:6px;}
+  .mosaic-cell{
+    border-radius:8px; border:1px solid var(--border-soft); position:relative;
+    display:flex; flex-direction:column; justify-content:flex-end; padding:6px 8px;
+    cursor:help; transition:transform .1s;
+  }
+  .mosaic-cell:hover{ transform:translateY(-2px); box-shadow:0 3px 8px rgba(16,32,50,.12); z-index:2;}
+  .mosaic-cell .m-code{font-family:var(--mono); font-size:10.5px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.35);}
+  .mosaic-cell .m-count{font-family:var(--mono); font-size:13px; font-weight:600; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.35);}
+  .mosaic-cell .m-spike{
+    position:absolute; top:-6px; right:-6px; font-size:16px; filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));
+  }
+  .mosaic-legend{display:flex; align-items:center; gap:14px; margin-top:12px; font-size:11px; color:var(--text-dim); flex-wrap:wrap;}
+  .mosaic-legend .sw{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px;}
+  .method-toggle-btn{
+    background:none; border:none; color:var(--cyan); font-size:11.5px; font-family:var(--sans); cursor:pointer;
+    display:flex; align-items:center; gap:4px; padding:2px 0; margin-top:10px;
+  }
+  .method-toggle-btn .arrow{display:inline-block; transition:transform .15s; font-size:9px;}
+  .method-toggle-btn.open .arrow{transform:rotate(90deg);}
+  .method-note{display:none; font-size:12px; color:var(--text-dim); background:var(--panel-alt); border-radius:8px; padding:12px 14px; margin-top:8px; line-height:1.6;}
+  .method-note code{font-family:var(--mono); font-size:11px; background:rgba(0,0,0,.05); padding:1px 4px; border-radius:3px;}
+
+  /* ---------- filter bar ---------- */
+  .filter-bar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px;}
+  .filter-bar input[type=text], .filter-bar input[type=date]{
+    font-family:var(--sans); font-size:12.5px; border:1px solid var(--border); border-radius:7px; padding:7px 10px; background:var(--panel-alt); color:var(--text);
+  }
+  .filter-bar label{font-size:11px; color:var(--text-dim); margin-right:4px;}
+  .chip-group{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{
+    font-family:var(--mono); font-size:11px; border:1px solid var(--border); border-radius:20px; padding:5px 11px;
+    cursor:pointer; background:var(--panel-alt); color:var(--text-dim); transition:all .12s; user-select:none;
+  }
+  .chip.active{background:var(--cyan); border-color:var(--cyan); color:#fff;}
+  .chip.c-active{background:var(--danger); border-color:var(--danger); color:#fff;}
+  .spacer{flex:1;}
+
+  /* ---------- layout grid ---------- */
+  .layout{display:grid; grid-template-columns:1.6fr 1fr; gap:16px; align-items:start;}
+  @media(max-width:980px){ .layout{grid-template-columns:1fr;} .kpi-strip{grid-template-columns:repeat(2,1fr);} }
+
+  /* ---------- trend chart ---------- */
+  .trend-chart{width:100%;}
+  .trend-chart svg{width:100%; display:block; overflow:visible;}
+  .trend-chart .tc-grid{stroke:var(--border-soft); stroke-width:1;}
+  .trend-chart .tc-axis-label{fill:var(--text-faint); font-family:'IBM Plex Mono', monospace; font-size:9.5px;}
+  .trend-legend{display:flex; gap:16px; font-size:11.5px; color:var(--text-dim); margin-top:8px;}
+  .trend-legend .sw{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px;}
+  .year-ratio-panel{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft);}
+  .year-ratio-card{background:var(--panel-alt); border-radius:8px; padding:10px 14px; min-width:110px;}
+  .year-ratio-card .yr-year{font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:4px;}
+  .year-ratio-card .yr-ratio{font-family:var(--mono); font-size:17px; font-weight:700; color:var(--text);}
+  .year-ratio-card .yr-detail{font-size:10.5px; color:var(--text-faint); margin-top:3px;}
+
+  /* ---------- badges ---------- */
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:10.5px;
+    padding:3px 9px; border-radius:20px; font-weight:600; cursor:help; letter-spacing:.02em;
+  }
+  .badge.recurring{background:rgba(198,54,47,0.12); color:var(--danger);}
+  .badge.spike{background:rgba(176,107,0,0.12); color:var(--amber);}
+  .badge.duration{background:rgba(169,112,214,0.14); color:#7A4FB0;}
+  .badge.backlog{background:rgba(140,154,181,0.16); color:#5B6B82;}
+  .badge.planned{background:rgba(11,114,133,0.12); color:var(--cyan);}
+  .badge.corrective{background:rgba(198,54,47,0.12); color:var(--danger);}
+  .dot{display:inline-block; width:7px; height:7px; border-radius:50%; vertical-align:-1px; margin-right:4px;}
+
+  /* ---------- ranking table ---------- */
+  table.rank-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.rank-table th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint);
+    padding:8px 10px; border-bottom:1.5px solid var(--border); font-weight:600; white-space:nowrap;
+  }
+  table.rank-table td{padding:9px 10px; border-bottom:1px solid var(--border-soft); vertical-align:middle;}
+  table.rank-table tbody tr{cursor:pointer; transition:background .1s;}
+  table.rank-table tbody tr:hover{background:var(--panel-alt);}
+  .sev-bar-wrap{width:64px; height:6px; background:var(--panel-alt); border-radius:4px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:6px;}
+  .sev-bar{height:100%; border-radius:4px;}
+  .tier-high{color:var(--danger); font-weight:700;}
+  .tier-medium{color:var(--amber); font-weight:700;}
+  .tier-low{color:var(--text-dim); font-weight:600;}
+  .detail-row td{background:var(--panel-alt); padding:14px 16px;}
+  .detail-row{display:none;}
+  .detail-row.open{display:table-row;}
+  .wo-chip-list{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+  .wo-chip{font-family:var(--mono); font-size:10.5px; background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:4px 8px;}
+  .empty-row td{text-align:center; color:var(--text-faint); padding:28px; font-size:12.5px;}
+
+  /* ---------- keyword panel ---------- */
+  .kw-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .kw-label{width:120px; font-size:12px; color:var(--text); flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .kw-bar-wrap{flex:1; height:16px; background:var(--panel-alt); border-radius:4px; overflow:hidden;}
+  .kw-bar{height:100%; background:var(--cyan); border-radius:4px;}
+  .cmcat-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+  .cmcat-label{width:150px; font-size:12px; color:var(--text); flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .cmcat-bar-wrap{flex:1; height:16px; background:var(--panel-alt); border-radius:4px; overflow:hidden;}
+  .cmcat-bar{height:100%; background:var(--c-corrective); border-radius:4px;}
+  .cmcat-count{font-family:var(--mono); font-size:11px; color:var(--text-dim); width:78px; text-align:right; flex-shrink:0;}
+  .kw-count{font-family:var(--mono); font-size:11px; color:var(--text-dim); width:32px; text-align:right; flex-shrink:0;}
+
+  /* ---------- work type bars ---------- */
+  .wt-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+  .wt-label{width:52px; font-family:var(--mono); font-size:12px; font-weight:600; flex-shrink:0;}
+  .wt-bar-wrap{flex:1; height:18px; background:var(--panel-alt); border-radius:4px; overflow:hidden; display:flex;}
+  .wt-count{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); width:56px; text-align:right; flex-shrink:0;}
+
+  /* ---------- status breakdown ---------- */
+  .status-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px;}
+  .status-item{background:var(--panel-alt); border-radius:8px; padding:9px 11px;}
+  .status-item .s-label{font-size:10.5px; color:var(--text-dim); margin-bottom:3px;}
+  .status-item .s-val{font-family:var(--mono); font-size:15px; font-weight:600;}
+
+  footer{margin-top:26px; padding-top:18px; border-top:1px solid var(--border); color:var(--text-faint); font-size:11.5px;}
+  footer a{color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <p class="eyebrow"><span class="dot"></span>MEA · Maintenance Engineering Intelligence</p>
+      <h1>Work Order <span class="accent">Anomaly</span> &amp; Pattern Dashboard</h1>
+      <p class="subtitle">วิเคราะห์ความผิดปกติของงาน Work Order ของ CMMS (TRxP งานตามแผน / TRxC งานแก้ไข) เพื่อค้นหาจุดซ่อมซ้ำ งานที่ใช้เวลาผิดปกติ และแนวโน้มงานเกิดความถี่ที่ผิดปกติจากงานซ่อมบำรุง</p>
+    </div>
+    <div class="header-actions">
+      <div class="period-box" id="periodBox"><b>—</b>ยังไม่มีข้อมูล</div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn primary" id="loadFileBtn">อัปโหลดไฟล์ .xlsx / .csv</button>
+        <button class="btn ghost" id="resetDataBtn" style="display:none;">ล้างข้อมูล</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn ghost" id="sendExecSummaryBtn" style="display:none;" title="ส่งเฉพาะข้อมูลปีปัจจุบันเท่านั้น ไม่ขึ้นกับตัวกรองที่เลือกอยู่บนหน้าจอ">📤 ส่งสรุปให้ผู้บริหาร (LINE) — ปีปัจจุบัน</button>
+        <button class="btn ghost" id="exportStandaloneBtn" style="display:none;" title="สร้างไฟล์ .html ที่ฝังข้อมูลนี้ไว้ในตัว เปิดที่เครื่องไหนก็เห็นเหมือนกันโดยไม่ต้องอัปโหลด Excel ซ้ำ">💾 ส่งออกไฟล์ HTML (พร้อมข้อมูล)</button>
+      </div>
+      <span id="exportStandaloneStatus" style="font-size:11.5px;font-family:var(--mono);"></span>
+      <span id="uploadStatus"></span>
+      <span id="execSummaryStatus" style="font-size:11.5px;font-family:var(--mono);"></span>
+      <input type="file" id="fileInput" accept=".xlsx,.csv" style="display:none;">
+    </div>
+  </header>
+
+  <div id="emptyState">
+    <div class="icon">🛠️</div>
+    <h2>ยังไม่มีข้อมูล Work Order</h2>
+    <p>อัปโหลดไฟล์ SAP PM Work Order (.xlsx หรือ .csv) เพื่อเริ่มวิเคราะห์ความผิดปกติ งานซ่อมซ้ำ และรูปแบบงานที่เกิดบ่อย ข้อมูลทั้งหมดประมวลผลในเบราว์เซอร์ ไม่มีการส่งออกไปที่เซิร์ฟเวอร์ใด ๆ</p>
+    <button class="btn primary" id="emptyStateLoadBtn">เลือกไฟล์</button>
+    <p class="cols">คอลัมน์ที่ใช้: Work Order · Description · Work Type · Status · ศูนย์งานซ่อมบำรุง · Target Start · Target Finish · Reported Date · สถานที่ติดตั้ง / MEA No.</p>
+  </div>
+
+  <div id="dashboardContent" style="display:none;">
+
+    <div class="kpi-strip" id="kpiStrip"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title"><span class="idx">01</span> จำนวนใบสั่งงานตาม Work Center</div>
+          <div class="panel-desc">ขนาดกล่อง = จำนวน Work Order ทั้งหมด · สี = สัดส่วนงานแก้ไข (Corrective) ยิ่งแดงยิ่งสูง · ⚡ = ศูนย์งานที่มีเดือนใดเดือนหนึ่งเกิดงานแก้ไขพุ่งผิดปกติ</div>
+        </div>
+      </div>
+      <div class="mosaic-wrap" id="mosaicWrap"></div>
+      <div class="mosaic-legend">
+        <span><span class="sw" style="background:var(--c-planned);"></span>Corrective ต่ำ</span>
+        <span><span class="sw" style="background:var(--c-corrective);"></span>Corrective สูง</span>
+        <span>⚡ Spike ผิดปกติ</span>
+      </div>
+      <button class="method-toggle-btn" id="methodToggleBtn"><span class="arrow">▶</span>วิธีคำนวณความผิดปกติ</button>
+      <div class="method-note" id="methodNote"></div>
+    </div>
+
+    <div class="filter-bar" id="filterBar">
+      <label>ค้นหา</label>
+      <input type="text" id="searchInput" placeholder="Description / สถานที่ / Work Order…" style="width:200px;">
+      <label>ตั้งแต่</label>
+      <input type="date" id="dateFrom">
+      <label>ถึง</label>
+      <input type="date" id="dateTo">
+      <div class="chip-group" id="yearChips"></div>
+      <div class="chip-group" id="wtChips"></div>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="resetFilterBtn">ล้างตัวกรอง</button>
+      <button class="btn ghost" id="exportCsvBtn">ส่งออก CSV</button>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title"><span class="idx">02</span> แนวโน้มรายเดือน: งานตามแผน vs งานแก้ไข</div>
+              <div class="panel-desc">จำนวน Work Order ต่อเดือน แยกตามประเภทงาน</div>
+            </div>
+          </div>
+          <div id="trendChart" class="trend-chart"></div>
+          <div class="trend-legend">
+            <span><span class="sw" style="background:var(--c-planned);"></span>งานตามแผน (TRxP)</span>
+            <span><span class="sw" style="background:var(--c-corrective);"></span>งานแก้ไข (TRxC)</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title"><span class="idx">02b</span> อัตราส่วน PM:CM รายเดือน</div>
+              <div class="panel-desc">สัดส่วน %PM (งานตามแผน) และ %CM (งานแก้ไข) ต่องานทั้งหมดในแต่ละเดือน (ไม่นับงานสถานะ CANC) — ยิ่งแถบแดงมาก แปลว่าสัดส่วนงานแก้ไขสูงขึ้นเทียบกับงานตามแผน</div>
+            </div>
+          </div>
+          <div id="ratioChart" class="trend-chart"></div>
+          <div class="trend-legend">
+            <span><span class="sw" style="background:var(--c-planned);"></span>%PM (งานตามแผน)</span>
+            <span><span class="sw" style="background:var(--c-corrective);"></span>%CM (งานแก้ไข)</span>
+          </div>
+          <div id="yearRatioPanel" class="year-ratio-panel"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title"><span class="idx">03</span> อันดับความผิดปกติ (Anomaly Ranking)</div>
+              <div class="panel-desc">รวมสัญญาณผิดปกติ 3 ประเภท: ซ่อมซ้ำจุดเดิม (Recurring) · งานพุ่งผิดปกติรายศูนย์ (Spike) · ระยะเวลาปฏิบัติงานผิดปกติ (Duration) — คลิกแถวเพื่อดูรายละเอียด</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="rank-table" id="anomalyTable">
+              <thead>
+                <tr>
+                  <th>ประเภท</th>
+                  <th>ตำแหน่ง / ศูนย์งาน</th>
+                  <th>สัญญาณ</th>
+                  <th>ความรุนแรง</th>
+                  <th>คำแนะนำ</th>
+                </tr>
+              </thead>
+              <tbody id="anomalyTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span class="idx">04</span> สัดส่วนประเภทงาน</div>
+          </div>
+          <div id="wtBreakdown"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span class="idx">05</span> ลักษณะงานที่เกิดขึ้นบ่อย</div>
+            <div class="panel-desc" style="margin-top:0;">คำ/อุปกรณ์ที่พบบ่อยใน Description</div>
+          </div>
+          <div id="keywordPanel"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title"><span class="idx">05b</span> การแบ่งประเภทงาน CM</div>
+              <div class="panel-desc" style="margin-top:0;">จัดกลุ่มงานแก้ไข (Corrective) ตามประเภทอุปกรณ์/สาเหตุ อ่านจาก Description — ไม่รวมงานที่ยกเลิก (CANC) และ WO ตั้งเบิกงบประจำปี/เดือน</div>
+            </div>
+          </div>
+          <div id="cmCategoryPanel"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span class="idx">06</span> สถานะงาน</div>
+          </div>
+          <div class="status-grid" id="statusGrid"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div id="methodologyFooter"></div>
+      <p style="margin-top:10px;">ประมวลผลทั้งหมดฝั่งไคลเอนต์ (client-side) — ไฟล์ข้อมูลไม่ถูกส่งออกนอกเบราว์เซอร์</p>
+    </footer>
+  </div>
+</div>
+<script>
+// ============================================================
+// Taxonomy
+// ============================================================
+function isPlanned(wt){ return /P$/i.test(wt||''); }
+function isCorrective(wt){ return /C$/i.test(wt||''); }
+const CLOSED_STATUSES = new Set(['CLOSED','COMPLETE','FINISH','CANC']);
+const KEYWORDS = [
+  'หม้อแปลง','สายไฟ','เคเบิล','ฟิวส์','เบรกเกอร์','สวิตช์','ล่อฟ้า','อาร์เรสเตอร์',
+  'มิเตอร์','รีเลย์','RELAY','เสาไฟฟ้า','ตู้','GIS','บุชชิ่ง','แบตเตอรี่','BAT',
+  'Thermoscan','น้ำมันหม้อแปลง','ตรวจสอบ','บำรุงรักษา','ซ่อม','เปลี่ยน','ติดตั้ง',
+  'ตัดต้นไม้','ต้นไม้','สัตว์','นก','งู','ฟ้าผ่า','น้ำท่วม','ไฟไหม้','ลัดวงจร',
+  'รั่ว','ชำรุด','FAIL','เวรไฟฟ้า','เฝ้าไฟ','CM','PM','สายป้อน','GAS'
+];
+
+// Equipment/cause categories for CM (corrective) work, classified from free-text Description.
+// Order matters — checked top-to-bottom, first match wins (more specific categories first).
+const CM_CATEGORIES = [
+  { name:'จุดร้อน/ความร้อนผิดปกติ (Hotspot)', re:/ร้อนแดง|จุดร้อน|Hot\s?spot|Thermoscan/i },
+  { name:'หม้อแปลง (Transformer)', re:/หม้อแปลง|\bTR\.?\s?\d|OLTC|Bushing|บุชชิ่ง|Buchholz|Tap\s?Changer|น้ำมันหม้อแปลง|น้ำมันรั่ว|Oil\s?Filter|Silica\s?gel|Tandelta|tan\s?delta|Moisture|transformer/i },
+  { name:'ระบบป้องกัน/รีเลย์ (Protection/Relay)', re:/Relay|รีเลย์|\bIED\b|Protection|Diff\.?\s?Relay|Trip\s?Coil|\bTC\d?\s?(FAIL|Show)|OC\s?Relay|\bDOC\b/i },
+  { name:'สวิตช์/เบรกเกอร์/GIS', re:/สวิตช์|Switch|\bCB\b|\bGIS\b|Breaker|Disconnect|\bDS\b|\bES\b|\bSF6\b|Gas\s?Leak|Low\s?Gas|ปลด.*ไม่ได้|สับ.*ไม่ได้|ปลด-สับ|Mechanism|Interlock|ใบมีด|ลูกถ้วย/i },
+  { name:'ไฟฟ้ากระแสตรง/แบตเตอรี่ (DC/Battery)', re:/Battery|แบตเตอรี่|Charger|Ground\s?Fault|กราวด์|Negative\s?Ground|Positive\s?Ground/i },
+  { name:'SCADA/สื่อสาร/Control&Alarm', re:/SCADA|\bRTU\b|\bHMI\b|Ethernet|การ์ดสื่อสาร|ติดต่อ.*ไม่ได้|Communication|Alarm.*Reset|ทดลอง.*control|control.*alarm|ทดลองวงจร/i },
+  { name:'มิเตอร์/เครื่องวัด', re:/Meter|PQ\s?METER|Gauge|Volt.*Amp|Analog|Indicator/i },
+  { name:'สายไฟ/สายเคเบิล/สายป้อน', re:/สายป้อน|Cable|สายไฟ|Feeder|ลัดวงจร|Terminator/i },
+  { name:'ระบบดับเพลิง', re:/ดับเพลิง|Fire|Heat\s?Detector/i },
+  { name:'สิ่งแวดล้อม/ภายนอก', re:/ต้นไม้|สัตว์|\bนก\b|\bงู\b|ฝนตก|น้ำท่วม|ฟ้าผ่า|ไฟไหม้/i },
+  { name:'อำนวยความสะดวก/สนับสนุนลูกค้า', re:/อำนวยความสะดวก|ดับไฟให้/i },
+];
+function classifyCmCategory(desc){
+  const d = desc || '';
+  for(const cat of CM_CATEGORIES){
+    if(cat.re.test(d)) return cat.name;
+  }
+  return 'อื่นๆ / ไม่ระบุ';
+}
+
+// ============================================================
+// State
+// ============================================================
+let allRecords = [];
+let currentDatasetLabel = '';
+let state = { search:'', dateFrom:'', dateTo:'', wtFilter:'all', yearFilter:'all' };
+let anomalies = { recurring:[], spike:[], duration:[] };
+
+function periodOf(records){
+  const dates = records.map(r=>r.rdate).filter(Boolean).sort((a,b)=>a-b);
+  if(!dates.length) return null;
+  return { from:dates[0], to:dates[dates.length-1] };
+}
+function fmtDate(d){
+  if(!d) return '—';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function monthKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+
+// ============================================================
+// Apply dataset after parse
+// ============================================================
+function applyDataset(records, label){
+  allRecords = records;
+  currentDatasetLabel = label;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('dashboardContent').style.display = 'block';
+  document.getElementById('resetDataBtn').style.display = 'inline-block';
+  document.getElementById('sendExecSummaryBtn').style.display = 'inline-block';
+  document.getElementById('exportStandaloneBtn').style.display = 'inline-block';
+  const p = periodOf(records);
+  document.getElementById('periodBox').innerHTML = p
+    ? `<b>${label}</b>${fmtDate(p.from)} — ${fmtDate(p.to)} · ${records.length.toLocaleString()} รายการ`
+    : `<b>${label}</b>${records.length.toLocaleString()} รายการ`;
+  state = { search:'', dateFrom:'', dateTo:'', wtFilter:'all', yearFilter:'all' };
+  document.getElementById('searchInput').value='';
+  document.getElementById('dateFrom').value='';
+  document.getElementById('dateTo').value='';
+  rerender();
+}
+
+// ============================================================
+// Filtering
+// ============================================================
+function filteredData(){
+  return allRecords.filter(r=>{
+    if(state.search){
+      const q = state.search.toLowerCase();
+      const hay = (r.desc+' '+r.site+' '+r.meano+' '+r.wo).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    if(state.dateFrom && r.rdate && fmtDate(r.rdate) < state.dateFrom) return false;
+    if(state.dateTo && r.rdate && fmtDate(r.rdate) > state.dateTo) return false;
+    if(state.wtFilter==='P' && !isPlanned(r.wtype)) return false;
+    if(state.wtFilter==='C' && !isCorrective(r.wtype)) return false;
+    return true;
+  });
+}
+
+// ============================================================
+// Anomaly detection engine
+// ============================================================
+// 1) Recurring failures: same site, ≥3 corrective WOs within a 180-day window
+// Excludes cancelled requests (CANC — never actually happened) and administrative annual/monthly
+// budget-placeholder WOs (durHours already spanning a full month/year) — same reasoning as the
+// duration-outlier and spike filters, otherwise every site's count is inflated by 1-2 bookkeeping entries.
+function computeRecurring(rows){
+  const bySite = {};
+  // purely-numeric 3-4 digit codes (e.g. "2901") match the Plant field, not a real substation — data-entry
+  // default rather than a genuine site, so they're excluded to avoid lumping unrelated work orders together.
+  const isRealSiteCode = (k)=> k && !/^\d{3,4}$/.test(k);
+  rows.filter(r=>isCorrective(r.wtype) && isRealSiteCode(r.site||r.meano) && r.rdate
+    && r.status!=='CANC' && (r.durHours==null || r.durHours < MAX_REAL_DURATION_HOURS)).forEach(r=>{
+    const key = r.site || r.meano;
+    (bySite[key] = bySite[key]||[]).push(r);
+  });
+  const out = [];
+  Object.keys(bySite).forEach(key=>{
+    const evs = bySite[key].sort((a,b)=>a.rdate-b.rdate);
+    if(evs.length < 3) return;
+    let flagged = false, bestSpan = Infinity, bestCount = 0;
+    for(let i=0;i<evs.length;i++){
+      for(let j=i+2;j<evs.length;j++){
+        const spanDays = (evs[j].rdate - evs[i].rdate)/86400000;
+        if(spanDays <= 180){
+          flagged = true;
+          const count = j-i+1;
+          if(count > bestCount || (count===bestCount && spanDays < bestSpan)){ bestCount = count; bestSpan = spanDays; }
+        }
+      }
+    }
+    if(flagged){
+      out.push({ key, center: evs[0].center, count: evs.length, windowCount: bestCount, spanDays: Math.round(bestSpan), records: evs });
+    }
+  });
+  return out.sort((a,b)=> b.windowCount - a.windowCount);
+}
+
+// 2) Center spike: monthly corrective count per center vs that center's own mean+2*std
+// Excludes administrative placeholder WOs (e.g. "เวรไฟฟ้า" monthly/annual duty-roster entries with
+// Target Start/Finish already spanning a full month or year) — otherwise a single batch-creation day
+// looks like a spike even though it's bookkeeping, not real incidents. A row with no finish date yet
+// (durHours === null, i.e. still genuinely open) is still counted.
+function computeSpikes(rows){
+  const byCenter = {};
+  rows.filter(r=>isCorrective(r.wtype) && r.center && r.rdate && (r.durHours==null || r.durHours < MAX_REAL_DURATION_HOURS)).forEach(r=>{
+    const mk = monthKey(r.rdate);
+    byCenter[r.center] = byCenter[r.center] || {};
+    (byCenter[r.center][mk] = byCenter[r.center][mk] || []).push(r);
+  });
+  const out = [];
+  Object.keys(byCenter).forEach(center=>{
+    const months = byCenter[center];
+    const counts = Object.values(months).map(a=>a.length);
+    if(counts.length < 3) return;
+    const mean = counts.reduce((a,b)=>a+b,0)/counts.length;
+    const variance = counts.reduce((a,b)=>a+(b-mean)*(b-mean),0)/counts.length;
+    const std = Math.sqrt(variance);
+    Object.keys(months).forEach(mk=>{
+      const c = months[mk].length;
+      if(c >= 3 && std>0 && c > mean + 2*std){
+        out.push({ center, month:mk, count:c, mean:Math.round(mean*10)/10, std:Math.round(std*10)/10, records:months[mk] });
+      }
+    });
+  });
+  return out.sort((a,b)=> (b.count-b.mean) - (a.count-a.mean));
+}
+
+// 3) Duration outliers: within each work-type group, flag durations far above the group median (log-scale MAD)
+// Note: many "TRxC" work orders in MEA's SAP PM data are administrative placeholders that register a
+// whole year's or month's CM budget for a site (Target Start/Finish spanning ~365 or ~30 days) rather
+// than a single repair visit. Those are excluded here (cap at 7 days) so the anomaly signal reflects
+// genuine single-visit work durations, not bulk bookkeeping entries.
+const MAX_REAL_DURATION_HOURS = 168; // 7 days
+function computeDurationOutliers(rows){
+  const withDur = rows.filter(r=> r.durHours!=null && r.durHours>0 && r.durHours < MAX_REAL_DURATION_HOURS);
+  const byType = {};
+  withDur.forEach(r=> (byType[r.wtype]=byType[r.wtype]||[]).push(r));
+  const out = [];
+  Object.keys(byType).forEach(wt=>{
+    const group = byType[wt];
+    if(group.length < 5) return;
+    const logs = group.map(r=>Math.log(r.durHours)).sort((a,b)=>a-b);
+    const median = logs[Math.floor(logs.length/2)];
+    const absDev = logs.map(v=>Math.abs(v-median)).sort((a,b)=>a-b);
+    const mad = absDev[Math.floor(absDev.length/2)] || 0.1;
+    const threshold = median + 3*1.4826*mad;
+    group.forEach(r=>{
+      const lv = Math.log(r.durHours);
+      if(lv > threshold){
+        out.push({ wo:r.wo, wtype:wt, desc:r.desc, site:r.site||r.meano, center:r.center, durHours:r.durHours,
+          medianHours: Math.round(Math.exp(median)*10)/10, ratio: Math.round((r.durHours/Math.exp(median))*10)/10, record:r });
+      }
+    });
+  });
+  return out.sort((a,b)=> b.ratio - a.ratio);
+}
+
+function tierClass(score){ return score>=70 ? 'tier-high' : score>=40 ? 'tier-medium' : 'tier-low'; }
+function tierColor(score){ return score>=70 ? 'var(--danger)' : score>=40 ? 'var(--amber)' : 'var(--text-faint)'; }
+
+function buildUnifiedAnomalyList(rowsOverride){
+  const rows = rowsOverride || filteredData();
+  anomalies.recurring = computeRecurring(rows);
+  anomalies.spike = computeSpikes(rows);
+  anomalies.duration = computeDurationOutliers(rows);
+
+  const maxRecurCount = Math.max(1, ...anomalies.recurring.map(a=>a.windowCount));
+  const maxSpikeGap = Math.max(1, ...anomalies.spike.map(a=>a.count-a.mean));
+  const maxDurRatio = Math.max(1, ...anomalies.duration.map(a=>a.ratio));
+
+  const list = [];
+  anomalies.recurring.forEach(a=>{
+    list.push({
+      type:'recurring', label: a.key, sub: a.center ? ('ศูนย์ '+a.center) : '',
+      signal: `ซ่อมแก้ไข ${a.windowCount} ครั้ง ภายใน ${a.spanDays} วัน`,
+      score: Math.round(Math.min(100, (a.windowCount/maxRecurCount)*100)),
+      advice: 'พิจารณาตรวจสอบสาเหตุรากเหง้า (root cause) และเพิ่มรอบ PM เชิงป้องกันที่จุดนี้',
+      detail: a.records
+    });
+  });
+  anomalies.spike.forEach(a=>{
+    list.push({
+      type:'spike', label:'ศูนย์ '+a.center, sub:a.month,
+      signal: `งานแก้ไข ${a.count} ครั้งในเดือนนี้ (ค่าเฉลี่ย ${a.mean})`,
+      score: Math.round(Math.min(100, ((a.count-a.mean)/maxSpikeGap)*100)),
+      advice: 'ตรวจสอบเหตุการณ์ผิดปกติในเดือนนี้ (เช่น สภาพอากาศ/เหตุการณ์เฉพาะ) และทบทวนภาระงานศูนย์',
+      detail: a.records
+    });
+  });
+  anomalies.duration.forEach(a=>{
+    const position = a.site || a.center || '(ไม่ระบุตำแหน่ง)';
+    list.push({
+      type:'duration', label: position, sub: a.wo,
+      signal: `ใช้เวลา ${Math.round(a.durHours)} ชม. (ปกติ ~${a.medianHours} ชม. ของ ${a.wtype})`,
+      score: Math.round(Math.min(100, (a.ratio/maxDurRatio)*100)),
+      advice: 'ตรวจสอบว่าล่าช้าจากขั้นตอนงาน อะไหล่ หรือบันทึกเวลาไม่ถูกต้อง',
+      detail: [a.record]
+    });
+  });
+  return list.sort((a,b)=> b.score - a.score);
+}
+
+// ============================================================
+// Render: KPI
+// ============================================================
+function median(arr){
+  if(!arr.length) return 0;
+  const s = [...arr].sort((a,b)=>a-b);
+  return s[Math.floor(s.length/2)];
+}
+function renderKPI(rows){
+  const total = rows.length;
+  const correctiveCount = rows.filter(r=>isCorrective(r.wtype)).length;
+  const correctivePct = total ? Math.round(100*correctiveCount/total) : 0;
+  const durs = rows.filter(r=>r.durHours!=null && r.durHours>0 && r.durHours<MAX_REAL_DURATION_HOURS).map(r=>r.durHours);
+  const medDays = Math.round((median(durs)/24)*10)/10;
+  const now = new Date();
+  const backlog = rows.filter(r=> !CLOSED_STATUSES.has(r.status) && r.rdate && (now-r.rdate)/86400000 > 60).length;
+  const cancelPct = total ? Math.round(100*rows.filter(r=>r.status==='CANC').length/total) : 0;
+  const recurringSites = anomalies.recurring.length;
+
+  const kpis = [
+    { label:'Work Order ทั้งหมด', value: total.toLocaleString(), warn:false },
+    { label:'สัดส่วนงานแก้ไข (Corrective)', value: correctivePct+'%', small:`${correctiveCount.toLocaleString()} งาน`, warn: correctivePct>=40, danger:correctivePct>=60 },
+    { label:'ระยะเวลาปฏิบัติงาน (มัธยฐาน)', value: medDays+'', small:'วัน', warn:false },
+    { label:'งานค้างเกิน 60 วัน', value: backlog.toLocaleString(), warn: backlog>0, danger:backlog>=20 },
+    { label:'อัตรายกเลิกงาน', value: cancelPct+'%', warn: cancelPct>=10 },
+    { label:'จุดที่ซ่อมซ้ำผิดปกติ', value: recurringSites.toLocaleString(), warn: recurringSites>0, danger: recurringSites>=5 },
+  ];
+  document.getElementById('kpiStrip').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.danger?'danger':k.warn?'warn':''}">
+      <div class="label">${k.label}</div>
+      <div class="value">${k.value}${k.small?` <small>${k.small}</small>`:''}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// Render: center workload mosaic
+// ============================================================
+function renderMosaic(rows){
+  const byCenter = {};
+  rows.forEach(r=>{
+    if(!r.center) return;
+    byCenter[r.center] = byCenter[r.center] || { total:0, corrective:0 };
+    byCenter[r.center].total++;
+    if(isCorrective(r.wtype)) byCenter[r.center].corrective++;
+  });
+  const centers = Object.keys(byCenter);
+  const spikeCenters = new Set(anomalies.spike.map(a=>a.center));
+  const maxTotal = Math.max(1, ...centers.map(c=>byCenter[c].total));
+  const wrap = document.getElementById('mosaicWrap');
+  if(!centers.length){ wrap.innerHTML = '<div class="empty-row" style="padding:20px;color:var(--text-faint);">ไม่มีข้อมูลศูนย์งานซ่อมบำรุงในตัวกรองปัจจุบัน</div>'; return; }
+  wrap.innerHTML = centers.sort((a,b)=>byCenter[b].total-byCenter[a].total).map(c=>{
+    const d = byCenter[c];
+    const ratio = d.total ? d.corrective/d.total : 0;
+    const size = 64 + Math.round((d.total/maxTotal)*70);
+    // interpolate color between planned (cyan) and corrective (danger) by ratio
+    const col = mixHex('#0B7285','#C6362F', ratio);
+    const isSpike = spikeCenters.has(c);
+    return `<div class="mosaic-cell" style="width:${size}px;height:${size}px;background:${col};" title="ศูนย์ ${c} — ${d.total} งาน, งานแก้ไข ${Math.round(ratio*100)}%">
+      ${isSpike?'<span class="m-spike">⚡</span>':''}
+      <span class="m-code">${c}</span>
+      <span class="m-count">${d.total}</span>
+    </div>`;
+  }).join('');
+}
+function mixHex(h1,h2,t){
+  const c1=hexToRgb(h1), c2=hexToRgb(h2);
+  const r=Math.round(c1.r+(c2.r-c1.r)*t), g=Math.round(c1.g+(c2.g-c1.g)*t), b=Math.round(c1.b+(c2.b-c1.b)*t);
+  return `rgb(${r},${g},${b})`;
+}
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  return { r:parseInt(hex.slice(0,2),16), g:parseInt(hex.slice(2,4),16), b:parseInt(hex.slice(4,6),16) };
+}
+
+// ============================================================
+// Render: trend chart (SVG stacked bars, planned vs corrective per month)
+// ============================================================
+function renderTrend(rows){
+  const byMonth = {};
+  rows.forEach(r=>{
+    if(!r.rdate) return;
+    const mk = monthKey(r.rdate);
+    byMonth[mk] = byMonth[mk] || { p:0, c:0 };
+    if(isPlanned(r.wtype)) byMonth[mk].p++; else if(isCorrective(r.wtype)) byMonth[mk].c++;
+  });
+  const months = Object.keys(byMonth).sort();
+  const el = document.getElementById('trendChart');
+  if(!months.length){ el.innerHTML = '<div style="padding:20px;color:var(--text-faint);font-size:12.5px;">ไม่มีข้อมูล</div>'; return; }
+  const W = 900, H = 220, padL = 34, padB = 26, padT = 10, padR = 10;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const maxVal = Math.max(1, ...months.map(m=>byMonth[m].p+byMonth[m].c));
+  const bw = chartW/months.length;
+  let bars = '', labels = '';
+  months.forEach((m,i)=>{
+    const d = byMonth[m];
+    const x = padL + i*bw + bw*0.12;
+    const w = bw*0.76;
+    const hP = (d.p/maxVal)*chartH, hC = (d.c/maxVal)*chartH;
+    const yTotal = padT + chartH - hP - hC;
+    bars += `<rect x="${x}" y="${padT+chartH-hP}" width="${w}" height="${hP}" fill="var(--c-planned)" rx="2"></rect>`;
+    bars += `<rect x="${x}" y="${yTotal}" width="${w}" height="${hC}" fill="var(--c-corrective)" rx="2"></rect>`;
+    if(i%Math.ceil(months.length/12||1)===0){
+      labels += `<text class="tc-axis-label" x="${x+w/2}" y="${H-8}" text-anchor="middle">${m.slice(2)}</text>`;
+    }
+  });
+  const gridLines = [0,0.5,1].map(f=>{
+    const y = padT + chartH*(1-f);
+    return `<line class="tc-grid" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"></line>
+      <text class="tc-axis-label" x="${padL-6}" y="${y+3}" text-anchor="end">${Math.round(maxVal*f)}</text>`;
+  }).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${gridLines}${bars}${labels}</svg>`;
+}
+
+// ============================================================
+// Render: PM:CM ratio chart (100%-stacked, % of total per month)
+// ============================================================
+function renderRatioChart(rows){
+  const byMonth = {};
+  rows.filter(r=>r.status!=='CANC').forEach(r=>{
+    if(!r.rdate) return;
+    const mk = monthKey(r.rdate);
+    byMonth[mk] = byMonth[mk] || { p:0, c:0 };
+    if(isPlanned(r.wtype)) byMonth[mk].p++; else if(isCorrective(r.wtype)) byMonth[mk].c++;
+  });
+  const months = Object.keys(byMonth).sort();
+  const el = document.getElementById('ratioChart');
+  if(!months.length){ el.innerHTML = '<div style="padding:20px;color:var(--text-faint);font-size:12.5px;">ไม่มีข้อมูล</div>'; return; }
+  const W = 900, H = 220, padL = 34, padB = 26, padT = 10, padR = 10;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const bw = chartW/months.length;
+  let bars = '', labels = '', pctLabels = '';
+  months.forEach((m,i)=>{
+    const d = byMonth[m];
+    const total = d.p + d.c;
+    const pPct = total ? d.p/total : 0;
+    const cPct = total ? d.c/total : 0;
+    const x = padL + i*bw + bw*0.12;
+    const w = bw*0.76;
+    const hP = pPct*chartH, hC = cPct*chartH;
+    const yTotal = padT + chartH - hP - hC;
+    bars += `<rect x="${x}" y="${padT+chartH-hP}" width="${w}" height="${hP}" fill="var(--c-planned)" rx="2"><title>${m} · PM ${Math.round(pPct*100)}% (${d.p} งาน)</title></rect>`;
+    bars += `<rect x="${x}" y="${yTotal}" width="${w}" height="${hC}" fill="var(--c-corrective)" rx="2"><title>${m} · CM ${Math.round(cPct*100)}% (${d.c} งาน)</title></rect>`;
+    if(hC > 14){
+      pctLabels += `<text class="tc-axis-label" x="${x+w/2}" y="${yTotal+hC/2+3}" text-anchor="middle" fill="#fff" style="font-size:9px;">${Math.round(cPct*100)}%</text>`;
+    }
+    if(i%Math.ceil(months.length/12||1)===0){
+      labels += `<text class="tc-axis-label" x="${x+w/2}" y="${H-8}" text-anchor="middle">${m.slice(2)}</text>`;
+    }
+  });
+  const gridLines = [0,0.25,0.5,0.75,1].map(f=>{
+    const y = padT + chartH*(1-f);
+    return `<line class="tc-grid" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"></line>
+      <text class="tc-axis-label" x="${padL-6}" y="${y+3}" text-anchor="end">${Math.round(f*100)}%</text>`;
+  }).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${gridLines}${bars}${pctLabels}${labels}</svg>`;
+}
+
+// ============================================================
+// Render: yearly PM:CM ratio summary (e.g. PM 100, CM 10 -> "10:1")
+// ============================================================
+function renderYearlyRatio(rows){
+  const byYear = {};
+  rows.filter(r=>r.status!=='CANC').forEach(r=>{
+    if(!r.rdate) return;
+    const y = r.rdate.getFullYear();
+    byYear[y] = byYear[y] || { p:0, c:0 };
+    if(isPlanned(r.wtype)) byYear[y].p++; else if(isCorrective(r.wtype)) byYear[y].c++;
+  });
+  const years = Object.keys(byYear).sort();
+  const el = document.getElementById('yearRatioPanel');
+  if(!years.length){ el.innerHTML = ''; return; }
+  el.innerHTML = years.map(y=>{
+    const d = byYear[y];
+    const total = d.p + d.c;
+    const pPct = total ? Math.round((d.p/total)*100) : 0;
+    const cPct = total ? Math.round((d.c/total)*100) : 0;
+    let ratioText;
+    if(d.c === 0){ ratioText = d.p > 0 ? `${d.p}:0` : '—'; }
+    else { ratioText = `${(d.p/d.c).toFixed(2)}:1`; }
+    return `<div class="year-ratio-card">
+      <div class="yr-year">${y}</div>
+      <div class="yr-ratio">PM:CM = ${ratioText}</div>
+      <div class="yr-detail">PM ${d.p.toLocaleString()} งาน (${pPct}%) · CM ${d.c.toLocaleString()} งาน (${cPct}%)</div>
+    </div>`;
+  }).join('');
+}
+
+
+// ============================================================
+// Render: work type breakdown
+// ============================================================
+function renderWtBreakdown(rows){
+  const counts = {};
+  rows.forEach(r=>{ counts[r.wtype] = (counts[r.wtype]||0)+1; });
+  const types = Object.keys(counts).sort();
+  const max = Math.max(1, ...Object.values(counts));
+  const el = document.getElementById('wtBreakdown');
+  if(!types.length){ el.innerHTML = '<div style="color:var(--text-faint);font-size:12px;">ไม่มีข้อมูล</div>'; return; }
+  el.innerHTML = types.map(t=>{
+    const c = counts[t];
+    const col = isPlanned(t) ? 'var(--c-planned)' : isCorrective(t) ? 'var(--c-corrective)' : 'var(--text-faint)';
+    return `<div class="wt-row">
+      <div class="wt-label" style="color:${col};">${t}</div>
+      <div class="wt-bar-wrap"><div style="width:${Math.round((c/max)*100)}%;height:100%;background:${col};"></div></div>
+      <div class="wt-count">${c.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// Render: keyword frequency
+// ============================================================
+function renderKeywords(rows){
+  const counts = {};
+  KEYWORDS.forEach(k=>counts[k]=0);
+  rows.forEach(r=>{
+    const d = r.desc || '';
+    KEYWORDS.forEach(k=>{
+      if(d.toLowerCase().includes(k.toLowerCase())) counts[k]++;
+    });
+  });
+  const top = Object.entries(counts).filter(([,c])=>c>0).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const el = document.getElementById('keywordPanel');
+  if(!top.length){ el.innerHTML = '<div style="color:var(--text-faint);font-size:12px;">ไม่พบคำที่ตรงกับรายการคำสำคัญ</div>'; return; }
+  const max = top[0][1];
+  el.innerHTML = top.map(([k,c])=>`
+    <div class="kw-row">
+      <div class="kw-label" title="${k}">${k}</div>
+      <div class="kw-bar-wrap"><div class="kw-bar" style="width:${Math.round((c/max)*100)}%;"></div></div>
+      <div class="kw-count">${c}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// Render: CM (corrective) work breakdown by equipment/cause category
+// ============================================================
+function renderCmCategories(rows){
+  // Same exclusions as the anomaly engine: cancelled requests and administrative annual/monthly
+  // budget-placeholder WOs don't represent real equipment failures, so they're left out here too.
+  const cmRows = rows.filter(r=>isCorrective(r.wtype) && r.status!=='CANC' && (r.durHours==null || r.durHours < MAX_REAL_DURATION_HOURS));
+  const counts = {};
+  cmRows.forEach(r=>{
+    const cat = classifyCmCategory(r.desc);
+    counts[cat] = (counts[cat]||0)+1;
+  });
+  const total = cmRows.length;
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const el = document.getElementById('cmCategoryPanel');
+  if(!entries.length){ el.innerHTML = '<div style="color:var(--text-faint);font-size:12px;">ไม่มีข้อมูลงานแก้ไขในตัวกรองปัจจุบัน</div>'; return; }
+  const max = entries[0][1];
+  el.innerHTML = entries.map(([name,c])=>{
+    const pct = total ? Math.round((c/total)*100) : 0;
+    return `<div class="cmcat-row">
+      <div class="cmcat-label" title="${name}">${name}</div>
+      <div class="cmcat-bar-wrap"><div class="cmcat-bar" style="width:${Math.round((c/max)*100)}%;"></div></div>
+      <div class="cmcat-count">${c} (${pct}%)</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// Render: status grid
+// ============================================================
+function renderStatusGrid(rows){
+  const counts = {};
+  rows.forEach(r=>{ counts[r.status] = (counts[r.status]||0)+1; });
+  const el = document.getElementById('statusGrid');
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){ el.innerHTML=''; return; }
+  el.innerHTML = entries.map(([s,c])=>`
+    <div class="status-item">
+      <div class="s-label">${s}</div>
+      <div class="s-val">${c.toLocaleString()}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// Render: anomaly table
+// ============================================================
+const TYPE_META = {
+  recurring: { label:'ซ่อมซ้ำ', cls:'recurring' },
+  spike: { label:'พุ่งผิดปกติ', cls:'spike' },
+  duration: { label:'เวลาผิดปกติ', cls:'duration' }
+};
+function renderAnomalyTable(list){
+  const tbody = document.getElementById('anomalyTbody');
+  if(!list.length){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">ไม่พบสัญญาณผิดปกติในข้อมูลที่กรองอยู่ขณะนี้</td></tr>`;
+    return;
+  }
+  const top = list.slice(0,30);
+  tbody.innerHTML = top.map((a,i)=>{
+    const meta = TYPE_META[a.type];
+    const woList = a.detail.map(r=>`<span class="wo-chip">${r.wo||''} · ${fmtDate(r.rdate)} · ${r.wtype||''}</span>`).join('');
+    return `
+    <tr data-idx="${i}">
+      <td><span class="badge ${meta.cls}">${meta.label}</span></td>
+      <td><b>${a.label}</b>${a.sub?`<div style="font-size:11px;color:var(--text-faint);">${a.sub}</div>`:''}</td>
+      <td>${a.signal}</td>
+      <td><span class="sev-bar-wrap"><span class="sev-bar" style="width:${a.score}%;background:${tierColor(a.score)};"></span></span><span class="${tierClass(a.score)}">${a.score}</span></td>
+      <td style="font-size:11.5px;color:var(--text-dim);max-width:220px;">${a.advice}</td>
+    </tr>
+    <tr class="detail-row" id="detail-${i}">
+      <td colspan="5">
+        <div style="font-size:11.5px;color:var(--text-dim);">Work Order ที่เกี่ยวข้อง (${a.detail.length}):</div>
+        <div class="wo-chip-list">${woList}</div>
+      </td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      document.getElementById('detail-'+tr.dataset.idx).classList.toggle('open');
+    });
+  });
+}
+
+// ============================================================
+// Footer methodology
+// ============================================================
+function renderMethodology(){
+  const note = `
+  <b>ซ่อมซ้ำ (Recurring):</b> จุดเดียวกัน (สถานที่ติดตั้ง/MEA No.) เกิดงานแก้ไข (TRxC) ≥3 ครั้ง ภายในช่วง 180 วัน<br>
+  <b>พุ่งผิดปกติ (Spike):</b> ศูนย์งานซ่อมบำรุงมีจำนวนงานแก้ไขในเดือนใดเดือนหนึ่งสูงกว่าค่าเฉลี่ยของศูนย์นั้น + 2×ส่วนเบี่ยงเบนมาตรฐาน (และ ≥3 งานในเดือนนั้น) — นับจากวันที่แจ้งงาน (Reported Date) จึงอาจรวมเหตุการณ์ "สร้างชุด Work Order ประจำปี/เดือน" พร้อมกันหลายรายการด้วย<br>
+  <b>เวลาผิดปกติ (Duration):</b> ระยะเวลาปฏิบัติงาน (Target Finish − Target Start) ของ Work Order สูงกว่ามัธยฐานของประเภทงานเดียวกันแบบมีนัยสำคัญ (log-median + 3×1.4826×MAD) · วิเคราะห์เฉพาะงานที่ใช้เวลา &lt;7 วัน เพื่อตัด Work Order ประเภท "ตั้งเบิกงบ CM ประจำปี/เดือน" (ที่ตั้ง Target Start–Finish คร่อมทั้งปี/เดือนเพื่อวัตถุประสงค์ทางบัญชี ไม่ใช่ระยะเวลาซ่อมจริง) ออกจากการวิเคราะห์<br>
+  <b>คะแนนความรุนแรง:</b> ปรับสเกล 0–100 เทียบกับค่าสูงสุดในกลุ่มเดียวกันของชุดข้อมูลที่กรองอยู่ · สูง ≥70 · ปานกลาง 40–69 · ต่ำ &lt;40`;
+  document.getElementById('methodNote').innerHTML = note;
+  document.getElementById('methodologyFooter').innerHTML = `<b>วิธีคำนวณ:</b> ${note}`;
+}
+
+// ============================================================
+// Filter bar wiring
+// ============================================================
+function renderYearChips(){
+  const yEl = document.getElementById('yearChips');
+  const years = Array.from(new Set(allRecords.map(r=>r.rdate).filter(Boolean).map(d=>d.getFullYear()))).sort((a,b)=>a-b);
+  if(!years.length){ yEl.innerHTML=''; return; }
+  const opts = [{v:'all',l:'ทุกปี'}].concat(years.map(y=>({v:String(y),l:String(y)})));
+  yEl.innerHTML = opts.map(o=>`<span class="chip ${state.yearFilter===o.v?'active':''}" data-v="${o.v}">${o.l}</span>`).join('');
+  yEl.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      const y = c.dataset.v;
+      state.yearFilter = y;
+      if(y==='all'){ state.dateFrom=''; state.dateTo=''; }
+      else { state.dateFrom = y+'-01-01'; state.dateTo = y+'-12-31'; }
+      document.getElementById('dateFrom').value = state.dateFrom;
+      document.getElementById('dateTo').value = state.dateTo;
+      rerender();
+    });
+  });
+}
+
+function renderChips(){
+  const wtEl = document.getElementById('wtChips');
+  const opts = [ {v:'all',l:'ทั้งหมด'}, {v:'P',l:'งานตามแผน (P)'}, {v:'C',l:'งานแก้ไข (C)'} ];
+  wtEl.innerHTML = opts.map(o=>`<span class="chip ${state.wtFilter===o.v?(o.v==='C'?'c-active':'active'):''}" data-v="${o.v}">${o.l}</span>`).join('');
+  wtEl.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click', ()=>{ state.wtFilter = c.dataset.v; rerender(); });
+  });
+  renderYearChips();
+}
+
+document.getElementById('searchInput').addEventListener('input', e=>{ state.search = e.target.value; rerender(); });
+document.getElementById('dateFrom').addEventListener('change', e=>{ state.dateFrom = e.target.value; state.yearFilter = null; rerender(); });
+document.getElementById('dateTo').addEventListener('change', e=>{ state.dateTo = e.target.value; state.yearFilter = null; rerender(); });
+document.getElementById('resetFilterBtn').addEventListener('click', ()=>{
+  state = { search:'', dateFrom:'', dateTo:'', wtFilter:'all', yearFilter:'all' };
+  document.getElementById('searchInput').value='';
+  document.getElementById('dateFrom').value='';
+  document.getElementById('dateTo').value='';
+  rerender();
+});
+
+// ============================================================
+// CSV export
+// ============================================================
+function toCSV(rows){
+  const header = ['Work Order','Description','Work Type','Category','Status','ศูนย์งานซ่อมบำรุง','สถานที่ติดตั้ง','MEA No.','Target Start','Target Finish','Reported Date','Duration_Hours'];
+  const lines = [header.join(',')];
+  rows.forEach(r=>{
+    const cells = [
+      r.wo, r.desc, r.wtype, isPlanned(r.wtype)?'Planned':(isCorrective(r.wtype)?'Corrective':''),
+      r.status, r.center, r.site, r.meano,
+      r.tstart?r.tstart.toISOString():'', r.tfinish?r.tfinish.toISOString():'', r.rdate?r.rdate.toISOString():'',
+      r.durHours!=null?Math.round(r.durHours*10)/10:''
+    ].map(v=>{
+      v = (v==null?'':String(v));
+      return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+    });
+    lines.push(cells.join(','));
+  });
+  return lines.join('\n');
+}
+document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
+  const csv = toCSV(filteredData());
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'workorder_filtered.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ============================================================
+// Executive summary → n8n webhook → Firestore (wo_summaries/) + LINE
+// (same integration pattern as SubEye's "SubEye → LINE Alarm" workflow:
+//  browser POSTs directly to an n8n webhook; n8n writes to Firestore with
+//  its Service Account and pushes the LINE message — no Firebase config
+//  or write access is ever exposed to the browser)
+// ============================================================
+// TODO(Pat): replace with the real webhook URL once the "WO Summary → LINE"
+// workflow exists in n8n (https://n8n.jupetor-cmms.com), and make sure the
+// "Respond to Webhook" node sets Access-Control-Allow-Origin: * — the browser
+// calls this endpoint directly, same as subeye-alarm.
+const WO_SUMMARY_WEBHOOK_URL = 'https://n8n.jupetor-cmms.com/webhook/wo-summary';
+
+function getCurrentYearRows(){
+  const y = new Date().getFullYear();
+  return allRecords.filter(r=> r.rdate && r.rdate.getFullYear()===y && r.status!=='CANC');
+}
+
+function buildExecSummaryPayload(){
+  // Executive LINE summary always reflects the CURRENT YEAR only — independent of whatever
+  // date/year filter is active on screen, so the number Pat sees on-screen while exploring
+  // other years never accidentally gets pushed to the group.
+  const rows = getCurrentYearRows();
+  const total = rows.length;
+  const correctiveCount = rows.filter(r=>isCorrective(r.wtype)).length;
+  const plannedCount = rows.filter(r=>isPlanned(r.wtype)).length;
+  const pmPct = total ? Math.round((plannedCount/total)*100) : 0;
+  const cmPct = total ? Math.round((correctiveCount/total)*100) : 0;
+  const ratioText = correctiveCount===0 ? (plannedCount>0?`${plannedCount}:0`:'—') : `${(plannedCount/correctiveCount).toFixed(2)}:1`;
+
+  const now = new Date();
+  const backlog = rows.filter(r=> !CLOSED_STATUSES.has(r.status) && r.rdate && (now-r.rdate)/86400000 > 60).length;
+  const durs = rows.filter(r=>r.durHours!=null && r.durHours>0 && r.durHours<MAX_REAL_DURATION_HOURS).map(r=>r.durHours);
+  const medDays = Math.round((median(durs)/24)*10)/10;
+
+  const list = buildUnifiedAnomalyList(rows);
+  const top5 = list.slice(0,5).map(a=>({ type:a.type, label:a.label, sub:a.sub||'', signal:a.signal, score:a.score }));
+  const top10 = list.slice(0,10).map(a=>({ type:a.type, label:a.label, sub:a.sub||'', signal:a.signal, score:a.score }));
+
+  // Top centers by workload, with their corrective ratio — useful "anything interesting" add-on
+  // for an exec audience (which center is carrying the heaviest / worst-PM-ratio load).
+  const byCenter = {};
+  rows.forEach(r=>{
+    if(!r.center) return;
+    byCenter[r.center] = byCenter[r.center] || { total:0, corrective:0 };
+    byCenter[r.center].total++;
+    if(isCorrective(r.wtype)) byCenter[r.center].corrective++;
+  });
+  const topCenters = Object.keys(byCenter)
+    .map(c=>({ center:c, total:byCenter[c].total, correctivePct: Math.round((byCenter[c].corrective/byCenter[c].total)*100) }))
+    .sort((a,b)=> b.total - a.total)
+    .slice(0,5);
+
+  const plantRow = rows.find(r=>r.plant);
+  const p = periodOf(rows);
+  const year = now.getFullYear();
+
+  return {
+    source: 'WorkOrder_Anomaly_Dashboard',
+    plant: (plantRow && plantRow.plant) || currentDatasetLabel || '',
+    datasetLabel: currentDatasetLabel,
+    year,
+    generatedAt: now.toISOString(),
+    periodFrom: p ? fmtDate(p.from) : null,
+    periodTo: p ? fmtDate(p.to) : null,
+    totals: { totalWO: total, planned: plannedCount, corrective: correctiveCount },
+    ratio: { pmPct, cmPct, pmToCm: ratioText },
+    kpi: { backlogOver60Days: backlog, medianDurationDays: medDays },
+    anomalyCounts: { recurring: anomalies.recurring.length, spike: anomalies.spike.length, duration: anomalies.duration.length },
+    topAnomalies: top5,
+    topAnomalies10: top10,
+    topCenters
+  };
+}
+
+async function sendExecSummaryToLine(){
+  const statusEl = document.getElementById('execSummaryStatus');
+  statusEl.style.color = 'var(--text-dim)';
+  statusEl.textContent = 'กำลังส่งสรุปไปยัง n8n…';
+  try{
+    const payload = buildExecSummaryPayload();
+    const res = await fetch(WO_SUMMARY_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    statusEl.style.color = 'var(--good)';
+    statusEl.textContent = 'ส่งสรุปสำเร็จ — n8n จะบันทึก Firestore และแจ้งเข้า LINE';
+    return true;
+  } catch(err){
+    console.error(err);
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = 'ส่งไม่สำเร็จ: ' + err.message + ' (เช็คว่า workflow ใน n8n สร้างแล้วและมี CORS header)';
+    return false;
+  }
+}
+document.getElementById('sendExecSummaryBtn').addEventListener('click', ()=>{ sendExecSummaryToLine(); });
+
+// ============================================================
+// Main render
+// ============================================================
+function rerender(){
+  const rows = filteredData();
+  renderChips();
+  const list = buildUnifiedAnomalyList();
+  renderKPI(rows);
+  renderMosaic(rows);
+  renderTrend(rows);
+  renderRatioChart(rows);
+  renderYearlyRatio(rows);
+  renderWtBreakdown(rows);
+  renderKeywords(rows);
+  renderCmCategories(rows);
+  renderStatusGrid(rows);
+  renderAnomalyTable(list);
+  renderMethodology();
+}
+
+// ============================================================
+// File loading: parse .xlsx (hand-rolled zip+XML reader) or .csv
+// ============================================================
+function setUploadStatus(msg, isError){
+  const el = document.getElementById('uploadStatus');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--danger)' : 'var(--good)';
+}
+
+function colIndexFromRef(ref){
+  const letters = ref.match(/[A-Z]+/)[0];
+  let idx = 0;
+  for(let i=0;i<letters.length;i++) idx = idx*26 + (letters.charCodeAt(i)-64);
+  return idx-1;
+}
+function excelSerialToDate(serial){
+  const utcDays = Math.floor(serial - 25569);
+  const fracDay = serial - Math.floor(serial);
+  const ms = utcDays*86400*1000 + Math.round(fracDay*86400*1000);
+  return new Date(ms);
+}
+function normalizeDateCell(raw){
+  if(raw==null || raw==='') return null;
+  const s = String(raw).trim();
+  const num = parseFloat(s);
+  if(!isNaN(num) && num>1000 && /^[\d.]+$/.test(s)) return excelSerialToDate(num);
+  const d = new Date(s);
+  if(!isNaN(d.getTime())) return d;
+  return null;
+}
+
+// ---- minimal ZIP reader ----
+function readUint16(dv, off){ return dv.getUint16(off, true); }
+function readUint32(dv, off){ return dv.getUint32(off, true); }
+
+function parseZipEntries(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const EOCD_SIG = 0x06054b50, CD_SIG = 0x02014b50, LOCAL_SIG = 0x04034b50;
+  let eocdOffset = -1;
+  const minPos = Math.max(0, bytes.length - 65557);
+  for(let i = bytes.length - 22; i >= minPos; i--){
+    if(readUint32(dv,i) === EOCD_SIG){ eocdOffset = i; break; }
+  }
+  if(eocdOffset === -1) throw new Error('ไม่พบโครงสร้าง ZIP ที่ถูกต้อง (ไฟล์อาจไม่ใช่ .xlsx จริง)');
+  const entryCount = readUint16(dv, eocdOffset+10);
+  const cdOffset = readUint32(dv, eocdOffset+16);
+  const entries = {};
+  let ptr = cdOffset;
+  for(let i=0;i<entryCount;i++){
+    if(readUint32(dv,ptr) !== CD_SIG) throw new Error('อ่านโครงสร้างไฟล์ ZIP ไม่สำเร็จ');
+    const compressionMethod = readUint16(dv, ptr+10);
+    const compressedSize = readUint32(dv, ptr+20);
+    const fileNameLength = readUint16(dv, ptr+28);
+    const extraLength = readUint16(dv, ptr+30);
+    const commentLength = readUint16(dv, ptr+32);
+    const localHeaderOffset = readUint32(dv, ptr+42);
+    const fileName = new TextDecoder('utf-8').decode(bytes.slice(ptr+46, ptr+46+fileNameLength));
+    entries[fileName] = { compressionMethod, compressedSize, localHeaderOffset };
+    ptr += 46 + fileNameLength + extraLength + commentLength;
+  }
+  return { entries, LOCAL_SIG };
+}
+async function inflateRaw(bytesSlice){
+  if(typeof DecompressionStream === 'undefined'){
+    throw new Error('เบราว์เซอร์นี้ไม่รองรับการคลายไฟล์ .xlsx โดยตรง กรุณาบันทึกไฟล์เป็น .csv แล้วลองใหม่');
+  }
+  const stream = new Blob([bytesSlice]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function extractZipFile(bytes, entries, localSig, name){
+  const entry = entries[name];
+  if(!entry) return null;
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const off = entry.localHeaderOffset;
+  if(readUint32(dv, off) !== localSig) throw new Error('อ่านหัวไฟล์ภายใน ZIP ไม่สำเร็จ');
+  const fileNameLength = readUint16(dv, off+26);
+  const extraLength = readUint16(dv, off+28);
+  const dataStart = off + 30 + fileNameLength + extraLength;
+  const compressed = bytes.slice(dataStart, dataStart + entry.compressedSize);
+  const raw = entry.compressionMethod === 0 ? compressed : await inflateRaw(compressed);
+  return new TextDecoder('utf-8').decode(raw);
+}
+function xmlCellsInRow(rowEl){ return [...rowEl.getElementsByTagName('c')]; }
+function cellText(c, sharedStrings){
+  const t = c.getAttribute('t');
+  if(t === 's'){
+    const v = c.getElementsByTagName('v')[0];
+    return v ? (sharedStrings[parseInt(v.textContent,10)] || '') : '';
+  }
+  if(t === 'inlineStr'){
+    const isEl = c.getElementsByTagName('is')[0];
+    return isEl ? (isEl.textContent||'').trim() : '';
+  }
+  const v = c.getElementsByTagName('v')[0];
+  return v ? v.textContent : '';
+}
+
+// column header matching (case-insensitive, trimmed)
+function matchHeader(low){
+  if(low==='work order') return 'wo';
+  if(low==='description') return 'desc';
+  if(low==='work type') return 'wtype';
+  if(low==='status') return 'status';
+  if(low==='ศูนย์งานซ่อมบำรุง') return 'center';
+  if(low==='target start') return 'tstart';
+  if(low==='target finish') return 'tfinish';
+  if(low==='reported date') return 'rdate';
+  if(low==='สถานที่ติดตั้ง') return 'site';
+  if(low==='mea no.' || low==='mea no') return 'meano';
+  if(low.startsWith('switch no')) return 'switchno';
+  if(low==='plant') return 'plant';
+  if(low==='sap pm order') return 'saporder';
+  return null;
+}
+function buildRecord(byIdx, colMap){
+  const wo = (byIdx[colMap.wo]||'').trim();
+  const wtype = (colMap.wtype!==undefined ? (byIdx[colMap.wtype]||'') : '').trim();
+  if(!wo || !wtype) return null;
+  const status = (colMap.status!==undefined ? (byIdx[colMap.status]||'') : '').trim();
+  const center = (colMap.center!==undefined ? (byIdx[colMap.center]||'') : '').trim();
+  const site = (colMap.site!==undefined ? (byIdx[colMap.site]||'') : '').trim();
+  const meano = (colMap.meano!==undefined ? (byIdx[colMap.meano]||'') : '').trim();
+  const desc = (colMap.desc!==undefined ? (byIdx[colMap.desc]||'') : '').trim();
+  const plant = (colMap.plant!==undefined ? (byIdx[colMap.plant]||'') : '').trim();
+  const tstart = colMap.tstart!==undefined ? normalizeDateCell(byIdx[colMap.tstart]) : null;
+  const tfinish = colMap.tfinish!==undefined ? normalizeDateCell(byIdx[colMap.tfinish]) : null;
+  const rdate = colMap.rdate!==undefined ? normalizeDateCell(byIdx[colMap.rdate]) : (tstart||null);
+  let durHours = null;
+  if(tstart && tfinish && tfinish > tstart) durHours = (tfinish-tstart)/3600000;
+  return { wo, desc, wtype, status, center, site, meano, plant, tstart, tfinish, rdate, durHours };
+}
+
+async function parseXlsxFile(file){
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const { entries, LOCAL_SIG } = parseZipEntries(buf);
+  let sheetPath = 'xl/worksheets/sheet1.xml';
+  try{
+    const wbXml = await extractZipFile(buf, entries, LOCAL_SIG, 'xl/workbook.xml');
+    const relsXml = await extractZipFile(buf, entries, LOCAL_SIG, 'xl/_rels/workbook.xml.rels');
+    if(wbXml && relsXml){
+      const wbDoc = new DOMParser().parseFromString(wbXml, 'application/xml');
+      const firstSheet = wbDoc.getElementsByTagName('sheet')[0];
+      const rId = firstSheet && firstSheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+      if(rId){
+        const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+        const rel = [...relsDoc.getElementsByTagName('Relationship')].find(r=>r.getAttribute('Id')===rId);
+        if(rel){ sheetPath = 'xl/' + rel.getAttribute('Target').replace(/^\/?/,''); }
+      }
+    }
+  } catch(e){ /* fall back to default sheet1.xml path */ }
+
+  const sharedXml = await extractZipFile(buf, entries, LOCAL_SIG, 'xl/sharedStrings.xml');
+  let sharedStrings = [];
+  if(sharedXml){
+    const ssDoc = new DOMParser().parseFromString(sharedXml, 'application/xml');
+    sharedStrings = [...ssDoc.getElementsByTagName('si')].map(si => {
+      const texts = [...si.getElementsByTagName('t')].map(t=>t.textContent);
+      return texts.join('');
+    });
+  }
+
+  const sheetXml = await extractZipFile(buf, entries, LOCAL_SIG, sheetPath);
+  if(!sheetXml) throw new Error('ไม่พบชีตข้อมูลในไฟล์นี้');
+  const sheetDoc = new DOMParser().parseFromString(sheetXml, 'application/xml');
+  const rows = [...sheetDoc.getElementsByTagName('row')];
+
+  let headerRowIdx = -1, colMap = null;
+  for(let i=0;i<Math.min(rows.length,8);i++){
+    const cells = xmlCellsInRow(rows[i]);
+    const found = {};
+    cells.forEach(c=>{
+      const txt = cellText(c, sharedStrings).trim();
+      const idx = colIndexFromRef(c.getAttribute('r'));
+      const key = matchHeader(txt.toLowerCase());
+      if(key) found[key] = idx;
+    });
+    if(found.wo!==undefined && found.wtype!==undefined && found.status!==undefined){
+      headerRowIdx = i; colMap = found; break;
+    }
+  }
+  if(headerRowIdx === -1){
+    throw new Error('ไม่พบแถวหัวตาราง (ต้องมีคอลัมน์ Work Order, Work Type, Status อย่างน้อย)');
+  }
+
+  const records = [];
+  for(let i=headerRowIdx+1; i<rows.length; i++){
+    const cells = xmlCellsInRow(rows[i]);
+    if(cells.length===0) continue;
+    const byIdx = {};
+    cells.forEach(c=>{ byIdx[colIndexFromRef(c.getAttribute('r'))] = cellText(c, sharedStrings); });
+    const rec = buildRecord(byIdx, colMap);
+    if(rec) records.push(rec);
+  }
+  return records;
+}
+
+function parseCsvLine(line){
+  const out = []; let cur=''; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch = line[i];
+    if(inQ){
+      if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else inQ=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') inQ=true;
+      else if(ch===','){ out.push(cur); cur=''; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function parseCsvFile(text){
+  const lines = text.split(/\r\n|\n/).filter(l=>l.length>0);
+  let headerIdx = -1, colMap=null;
+  for(let i=0;i<Math.min(lines.length,8);i++){
+    const cells = parseCsvLine(lines[i]);
+    const found = {};
+    cells.forEach((txt,idx)=>{
+      const key = matchHeader(txt.trim().toLowerCase());
+      if(key) found[key]=idx;
+    });
+    if(found.wo!==undefined && found.wtype!==undefined && found.status!==undefined){ headerIdx=i; colMap=found; break; }
+  }
+  if(headerIdx===-1) throw new Error('ไม่พบแถวหัวตาราง (ต้องมีคอลัมน์ Work Order, Work Type, Status อย่างน้อย)');
+  const records = [];
+  for(let i=headerIdx+1;i<lines.length;i++){
+    const cells = parseCsvLine(lines[i]);
+    const byIdx = {};
+    cells.forEach((v,idx)=>{ byIdx[idx]=v; });
+    const rec = buildRecord(byIdx, colMap);
+    if(rec) records.push(rec);
+  }
+  return records;
+}
+
+document.getElementById('loadFileBtn').addEventListener('click', ()=> document.getElementById('fileInput').click());
+document.getElementById('emptyStateLoadBtn').addEventListener('click', ()=> document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  setUploadStatus('กำลังอ่านไฟล์ ' + file.name + ' …', false);
+  try{
+    let records;
+    if(/\.csv$/i.test(file.name)){
+      records = parseCsvFile(await file.text());
+    } else if(/\.xlsx$/i.test(file.name)){
+      records = await parseXlsxFile(file);
+    } else {
+      throw new Error('รองรับเฉพาะไฟล์ .xlsx หรือ .csv');
+    }
+    if(!records.length) throw new Error('ไม่พบข้อมูลที่อ่านได้ในไฟล์นี้');
+    const label = file.name.replace(/\.(xlsx|csv)$/i,'');
+    applyDataset(records, label);
+    setUploadStatus(`โหลดสำเร็จ: ${records.length.toLocaleString()} Work Order จาก ${file.name}`, false);
+  } catch(err){
+    console.error(err);
+    setUploadStatus('โหลดไฟล์ไม่สำเร็จ: ' + err.message, true);
+  }
+  e.target.value = '';
+});
+document.getElementById('methodToggleBtn').addEventListener('click', ()=>{
+  const note = document.getElementById('methodNote');
+  const btn = document.getElementById('methodToggleBtn');
+  const isOpen = note.style.display !== 'none';
+  note.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
+});
+document.getElementById('resetDataBtn').addEventListener('click', ()=>{
+  allRecords = [];
+  currentDatasetLabel = '';
+  document.getElementById('dashboardContent').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('resetDataBtn').style.display = 'none';
+  document.getElementById('sendExecSummaryBtn').style.display = 'none';
+  document.getElementById('exportStandaloneBtn').style.display = 'none';
+  document.getElementById('periodBox').innerHTML = '<b>—</b>ยังไม่มีข้อมูล';
+  setUploadStatus('ล้างข้อมูลแล้ว — โหลดไฟล์ใหม่เพื่อเริ่มวิเคราะห์', false);
+  document.getElementById('execSummaryStatus').textContent = '';
+  document.getElementById('exportStandaloneStatus').textContent = '';
+});
+
+// ============================================================
+// Export a standalone HTML snapshot with the loaded data embedded —
+// lets a colleague open the file locally and see the exact same
+// dashboard (fully interactive: filters, anomaly table, charts) without
+// ever uploading the Excel themselves. No server, no re-upload needed.
+// ============================================================
+function serializeDateForExport(d){ return d ? d.toISOString() : null; }
+function exportStandaloneHtml(){
+  const statusEl = document.getElementById('exportStandaloneStatus');
+  if(!allRecords.length){
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = 'ยังไม่มีข้อมูลให้ส่งออก';
+    return;
+  }
+  try{
+    statusEl.style.color = 'var(--text-dim)';
+    statusEl.textContent = 'กำลังสร้างไฟล์…';
+
+    const serializableRecords = allRecords.map(r=>({
+      wo:r.wo, desc:r.desc, wtype:r.wtype, status:r.status, center:r.center,
+      site:r.site, meano:r.meano, plant:r.plant, durHours:r.durHours,
+      tstart: serializeDateForExport(r.tstart),
+      tfinish: serializeDateForExport(r.tfinish),
+      rdate: serializeDateForExport(r.rdate)
+    }));
+    const embeddedPayload = { records: serializableRecords, label: currentDatasetLabel };
+    const dataJson = JSON.stringify(embeddedPayload).replace(/</g, '\\u003c'); // avoid breaking out of <script>
+
+    // Capture the page's own current HTML (script tag text is preserved verbatim since we
+    // never mutate it) and inject the embedded-data bootstrap right before </body>.
+    const pageHtml = document.documentElement.outerHTML;
+    // Build the tag via concatenation — writing the literal script-closing sequence directly here would
+    // prematurely close THIS file's own script element when the browser parses the raw HTML.
+    const bootstrapScript = '<scr'+'ipt>window.__EMBEDDED_WO_DATA__ = ' + dataJson + ';</scr'+'ipt>\n';
+    const finalHtml = '<!DOCTYPE html>\n' + pageHtml.replace('</body>', bootstrapScript + '</body>');
+
+    const blob = new Blob([finalHtml], { type:'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeLabel = (currentDatasetLabel || 'workorder').replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
+    a.href = url; a.download = `${safeLabel}_snapshot.html`; a.click();
+    URL.revokeObjectURL(url);
+
+    const sizeMb = Math.round((finalHtml.length/1024/1024)*10)/10;
+    statusEl.style.color = 'var(--good)';
+    statusEl.textContent = `สร้างไฟล์สำเร็จ (~${sizeMb} MB) — ส่งไฟล์นี้ให้คนอื่นเปิดได้เลย ไม่ต้องอัปโหลด Excel ซ้ำ`;
+  } catch(err){
+    console.error(err);
+    statusEl.style.color = 'var(--danger)';
+    statusEl.textContent = 'สร้างไฟล์ไม่สำเร็จ: ' + err.message;
+  }
+}
+document.getElementById('exportStandaloneBtn').addEventListener('click', exportStandaloneHtml);
+
+// If this file was opened as an exported snapshot (embedded data present), load it automatically —
+// the recipient sees the fully analyzed dashboard immediately, no upload step needed.
+if(window.__EMBEDDED_WO_DATA__){
+  try{
+    const payload = window.__EMBEDDED_WO_DATA__;
+    const records = payload.records.map(r=>({
+      ...r,
+      tstart: r.tstart ? new Date(r.tstart) : null,
+      tfinish: r.tfinish ? new Date(r.tfinish) : null,
+      rdate: r.rdate ? new Date(r.rdate) : null
+    }));
+    applyDataset(records, (payload.label || 'ไฟล์ที่ส่งออก'));
+    setUploadStatus('เปิดจากไฟล์สรุปที่ส่งออกไว้ (ข้อมูลฝังอยู่ในไฟล์นี้แล้ว)', false);
+  } catch(err){
+    console.error('โหลดข้อมูลที่ฝังไว้ในไฟล์ไม่สำเร็จ', err);
+  }
+}
+</script>
+</body>
+</html>
